@@ -105,7 +105,7 @@ const bookTime = (date, time) => {
   bookedTimes.push(booking);
 };
 
-  const bookingDate = new Date(2024, 4, 20);
+  const bookingDate = new Date(2024, 5, 7);
   bookTime(bookingDate, '09:00');
   bookTime(bookingDate, '10:00');
   bookTime(bookingDate, '11:00');
@@ -131,9 +131,12 @@ const setInactiveDates = (date) => {
   }
 };
 
-// Установить 25 мая в состояние неактивных
- const inactiveDate = new Date(2024, 4, 25); // Месяцы в JavaScript начинаются с 0, поэтому 4 - это май
+// Установить 6 июня в состояние неактивных
+ const inactiveDate = new Date(2024, 5, 13); // Месяцы в JavaScript начинаются с 0, поэтому 5 - это июнь
  setInactiveDates(inactiveDate);
+
+ const inactiveDate2 = new Date(2024, 5, 14);
+ setInactiveDates(inactiveDate2);
 // ----------
 
 // Функция для проверки, является ли дата неактивной
@@ -145,24 +148,32 @@ const isDateInactive = (date) => {
 
 // Функция для прикрепления доступного времени для бронирования ко всем актуальным дням месяцев в году
 const attachAvailableTimesToCalendar = () => {
-  const currentDate = new Date(); // текущая дата
+  const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth();
   const currentDay = currentDate.getDate();
 
   // Перебираем все месяцы в текущем году
   for (let i = currentMonth; i < 12; i++) {
-    const numberOfDaysInMonth = new Date(currentYear, i + 1, 0).getDate(); // Получаем количество дней в текущем месяце
+    const numberOfDaysInMonth = new Date(currentYear, i + 1, 0).getDate(); // Получаем количество дней в месяце
 
-    // Начинаем перебирать дни месяца, начиная с текущего дня
-    for (let j = (i === currentMonth ? currentDay : 1); j <= numberOfDaysInMonth; j++) {
+    // Начинаем перебирать дни месяца, начиная с первого дня
+    for (let j = 1; j <= numberOfDaysInMonth; j++) {
       const date = new Date(currentYear, i, j); // Формируем дату для текущего дня
 
-      // Проверяем, является ли текущий день активным (не является ли он прошедшим или неактивным)
-      if (!isDateInactive(date)) {
-        const availableTimes = getAvailableTimes(date); // Получаем доступное время для текущего дня
-        AvailableTimesForMonths.push({ date, availableTimes }); // Добавляем доступное время для текущего дня в массив
-        console.log(`Available Times for ${date.toDateString()}:`, availableTimes);
+      // Проверяем, является ли дата прошедшей или текущей в текущем месяце
+      if (i === currentMonth && j < currentDay) {
+        // Если дата неактивна (до или включая текущий день), создаем пустой массив времени
+        AvailableTimesForMonths.push({ date, availableTimes: [] });
+      } else {
+        // Если дата активна, проверяем, является ли она неактивной по другим критериям
+        if (!isDateInactive(date)) {
+          const availableTimes = getAvailableTimes(date); // Получаем доступное время для текущего дня
+          AvailableTimesForMonths.push({ date, availableTimes }); // Добавляем доступное время для текущего дня в массив
+        } else {
+          // Если дата неактивна по другим критериям, создаем пустой массив времени
+          AvailableTimesForMonths.push({ date, availableTimes: [] });
+        }
       }
     }
   }
