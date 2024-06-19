@@ -319,15 +319,6 @@ app.get('/getavailabletimes', cors(), (req, res) => {
 
 ////////////////////////////////////////////
 
-// Добавляем маршрут для обработки данных бронирования
-app.post('/api/booking', cors(), (req, res) => {
-  const bookingData = req.body;
-  console.log('Received booking data:', bookingData);
-  res.status(200).send('S: Booking data received');
-});
-
-////////////////////////////////////////////
-
 app.listen(port, () => {
   generateCalendarData();
   attachAvailableTimesToCalendar();
