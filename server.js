@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 
+// logger
 const morgan = require('morgan');
 
 const app = express();
@@ -10,7 +11,19 @@ app.use(cors());
 app.use(express.json());
 
 // Подключаем morgan для логирования запросов
-app.use(morgan('combined'));
+//app.use(morgan('combined'));
+
+///////////////// DATABASE 
+
+const sqlite3 = require('sqlite3').verbose();
+
+const db = new sqlite3.Database('./db/database.db', (err) => {
+  if (err) {
+    console.error('Error when connect to Database:', err.message);
+  } else {
+    console.log('Connected to the Database successfully');
+  }
+});
 
 ////////////////////////////////////////////
 
@@ -317,16 +330,33 @@ app.get('/getavailabletimes', cors(), (req, res) => {
   res.json(bookedTimes);
 });
 
-////////////////////////////////////////////
+///////////////// DATABASE 
 
-// Добавляем маршрут для обработки данных бронирования
 app.post('/api/booking', cors(), (req, res) => {
   const bookingData = req.body;
   console.log('Received booking data:', bookingData);
-  res.status(200).send('S: Booking data received');
+
+  // Execute data from bookingData
+  const { specialist, selectedServices, selectedDate, selectedTime, personalInfo } = bookingData;
+  const { name, phone, email, comment, agreedToPrivacyPolicy } = personalInfo;
+
+  // Insert data to DB
+  const sql = `INSERT INTO bookings (specialist, selectedServices, selectedDate, selectedTime, name, phone, email, comment, agreedToPrivacyPolicy) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const values = [specialist, JSON.stringify(selectedServices), selectedDate, selectedTime, name, phone, email, comment, agreedToPrivacyPolicy ? 1 : 0];
+
+  db.run(sql, values, function(err) {
+    if (err) {
+      console.error('Error inserting data into database:', err.message);
+      res.status(500).send('Failed to save booking data');
+    } else {
+      console.log(`Booking inserted with ID: ${this.lastID}`);
+      res.status(200).send('Booking data saved successfully');
+    }
+  });
 });
 
-////////////////////////////////////////////
+///////////////// SERVER START
 
 app.listen(port, () => {
   generateCalendarData();
