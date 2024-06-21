@@ -10,6 +10,9 @@ const port = 3001;
 app.use(cors());
 app.use(express.json());
 
+// connecting static files
+app.use(express.static('public'));
+
 // Подключаем morgan для логирования запросов
 //app.use(morgan('combined'));
 
@@ -24,6 +27,74 @@ const db = new sqlite3.Database('./db/database.db', (err) => {
     console.log('Connected to the Database successfully');
   }
 });
+
+//// NEW SPECIALIST
+
+// Эндпоинт для добавления нового специалиста
+app.post('/api/specialists', cors(), (req, res) => {
+  const { name, services, inactiveDays, workingTimes, photo } = req.body; // Получаем данные нового специалиста из тела запроса
+
+  // SQL-запрос для вставки нового специалиста
+  const insertQuery = `
+    INSERT INTO specialists (name, services, inactive_days, working_times, photo)
+    VALUES (?, ?, ?, ?, ?)
+  `;
+
+  const values = [name, services, inactiveDays, workingTimes, photo]; // Значения для подстановки в SQL-запрос
+
+  // Выполняем SQL-запрос к базе данных
+  db.run(insertQuery, values, function(err) {
+    if (err) {
+      console.error('Error inserting new specialist:', err.message);
+      res.status(500).json({ error: 'Failed to add new specialist' });
+      return;
+    }
+    console.log(`New specialist added with ID: ${this.lastID}`);
+    res.status(200).json({ message: 'New specialist added successfully' });
+  });
+});
+
+//// LIST OF SPECIALISTS
+
+// Эндпоинт для получения списка специалистов
+app.get('/api/specialists', cors(), (req, res) => {
+  // SQL-запрос для получения списка специалистов
+  const sql = 'SELECT * FROM specialists';
+
+  db.all(sql, [], (err, rows) => {
+    if (err) {
+      console.error('Error fetching specialists:', err.message);
+      res.status(500).json({ error: 'Failed to fetch specialists' });
+      return;
+    }
+    res.json(rows); // Отправляем список специалистов в формате JSON
+  });
+});
+
+//// DELETE SPECIALIST
+
+// DELETE SPECIALIST
+app.delete('/api/specialists/:id', cors(), (req, res) => {
+  const specialistId = req.params.id;
+
+  // SQL-запрос для удаления специалиста
+  const deleteQuery = `
+    DELETE FROM specialists
+    WHERE id = ?
+  `;
+
+  // Выполняем SQL-запрос к базе данных
+  db.run(deleteQuery, [specialistId], function(err) {
+    if (err) {
+      console.error('Error deleting specialist:', err.message);
+      res.status(500).json({ error: 'Failed to delete specialist' });
+      return;
+    }
+    console.log(`Specialist with ID ${specialistId} deleted successfully`);
+    res.status(200).json({ message: 'Specialist deleted successfully' });
+  });
+});
+
 
 ////////////////////////////////////////////
 
@@ -332,6 +403,7 @@ app.get('/getavailabletimes', cors(), (req, res) => {
 
 ///////////////// DATABASE 
 
+//// BOOKING
 app.post('/api/booking', cors(), (req, res) => {
   const bookingData = req.body;
   console.log('Received booking data:', bookingData);

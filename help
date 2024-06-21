@@ -9,9 +9,26 @@ npm install sqlite3
 
 
 Добавить таблицу для хранения данных специалиста, его services, available times и сделать автоматический
-вывод данных для клиента исходя из запроса к серверу.
+вывод данных для клиента исходя из запроса к серверу:
+    specialist-name
+    specialist-services
+    specialist-workingTimes
 
-Добавить таблицу для хранения букинг данных клиента
+Добавить таблицу для хранения букинг данных клиента:
+    id
+    specialist
+    selectedServices
+    selectedDate
+    selectedTime
+    name
+    phone
+    email
+    comment
+    agreedToPrivacyPolicy
 
-Добавить таблицу для хранения inactive days (выходной)
+Добавить таблицу для хранения inactive days (выходной):
+    date
+    time
+
+
 
