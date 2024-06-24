@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const sqlite3 = require('sqlite3').verbose();
 
 // logger
 const morgan = require('morgan');
@@ -17,8 +18,6 @@ app.use(express.static('public'));
 //app.use(morgan('combined'));
 
 ///////////////// DATABASE 
-
-const sqlite3 = require('sqlite3').verbose();
 
 const db = new sqlite3.Database('./db/database.db', (err) => {
   if (err) {
@@ -95,6 +94,41 @@ app.delete('/api/specialists/:id', cors(), (req, res) => {
   });
 });
 
+//// SHOW BOOKING LIST
+
+// Endpoint to get the list of bookings
+app.get('/api/bookings', cors(), (req, res) => {
+  const sql = 'SELECT * FROM bookings';
+  
+  db.all(sql, [], (err, rows) => {
+    if (err) {
+      console.error('Error fetching bookings:', err.message);
+      res.status(500).json({ error: 'Failed to fetch bookings' });
+      return;
+    }
+    res.json(rows); // Send the list of bookings in JSON format
+  });
+});
+
+//// GET SPECIALIST BY ID
+app.get('/api/specialists/:id', cors(), (req, res) => {
+  const specialistId = req.params.id;
+
+  const sql = 'SELECT * FROM specialists WHERE id = ?';
+
+  db.get(sql, [specialistId], (err, row) => {
+    if (err) {
+      console.error('Error fetching specialist:', err.message);
+      res.status(500).json({ error: 'Failed to fetch specialist' });
+      return;
+    }
+    if (!row) {
+      res.status(404).json({ error: 'Specialist not found' });
+      return;
+    }
+    res.json(row);
+  });
+});
 
 ////////////////////////////////////////////
 
@@ -409,13 +443,13 @@ app.post('/api/booking', cors(), (req, res) => {
   console.log('Received booking data:', bookingData);
 
   // Execute data from bookingData
-  const { specialist, selectedServices, selectedDate, selectedTime, personalInfo } = bookingData;
+  const { specialistId, selectedServices, selectedDate, selectedTime, personalInfo } = bookingData;
   const { name, phone, email, comment, agreedToPrivacyPolicy } = personalInfo;
 
   // Insert data to DB
-  const sql = `INSERT INTO bookings (specialist, selectedServices, selectedDate, selectedTime, name, phone, email, comment, agreedToPrivacyPolicy) 
+  const sql = `INSERT INTO bookings (specialistId, selectedServices, selectedDate, selectedTime, name, phone, email, comment, agreedToPrivacyPolicy) 
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-  const values = [specialist, JSON.stringify(selectedServices), selectedDate, selectedTime, name, phone, email, comment, agreedToPrivacyPolicy ? 1 : 0];
+  const values = [specialistId, JSON.stringify(selectedServices), selectedDate, selectedTime, name, phone, email, comment, agreedToPrivacyPolicy ? 1 : 0];
 
   db.run(sql, values, function(err) {
     if (err) {
