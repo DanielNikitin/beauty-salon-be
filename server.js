@@ -130,6 +130,31 @@ app.get('/api/specialists/:id', cors(), (req, res) => {
   });
 });
 
+//// INSERT NEW BOOKING DATA FROM CLIENT
+app.post('/api/booking', cors(), (req, res) => {
+  const bookingData = req.body;
+  console.log('Received booking data:', bookingData);
+
+  // Execute data from bookingData
+  const { specialistId, selectedServices, selectedDate, selectedTime, personalInfo } = bookingData;
+  const { name, phone, email, comment, agreedToPrivacyPolicy } = personalInfo;
+
+  // Insert data to DB
+  const sql = `INSERT INTO bookings (specialistId, selectedServices, selectedDate, selectedTime, name, phone, email, comment, agreedToPrivacyPolicy) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const values = [specialistId, JSON.stringify(selectedServices), selectedDate, selectedTime, name, phone, email, comment, agreedToPrivacyPolicy ? 1 : 0];
+
+  db.run(sql, values, function(err) {
+    if (err) {
+      console.error('Error inserting data into database:', err.message);
+      res.status(500).send('Failed to save booking data');
+    } else {
+      console.log(`Booking inserted with ID: ${this.lastID}`);
+      res.status(200).send('Booking data saved successfully');
+    }
+  });
+});
+
 ////////////////////////////////////////////
 
 // GLOBAL VARIABLES
@@ -435,34 +460,13 @@ app.get('/getavailabletimes', cors(), (req, res) => {
   res.json(bookedTimes);
 });
 
-///////////////// DATABASE 
+///////////////// SERVER START
 
-//// BOOKING
-app.post('/api/booking', cors(), (req, res) => {
-  const bookingData = req.body;
-  console.log('Received booking data:', bookingData);
-
-  // Execute data from bookingData
-  const { specialistId, selectedServices, selectedDate, selectedTime, personalInfo } = bookingData;
-  const { name, phone, email, comment, agreedToPrivacyPolicy } = personalInfo;
-
-  // Insert data to DB
-  const sql = `INSERT INTO bookings (specialistId, selectedServices, selectedDate, selectedTime, name, phone, email, comment, agreedToPrivacyPolicy) 
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-  const values = [specialistId, JSON.stringify(selectedServices), selectedDate, selectedTime, name, phone, email, comment, agreedToPrivacyPolicy ? 1 : 0];
-
-  db.run(sql, values, function(err) {
-    if (err) {
-      console.error('Error inserting data into database:', err.message);
-      res.status(500).send('Failed to save booking data');
-    } else {
-      console.log(`Booking inserted with ID: ${this.lastID}`);
-      res.status(200).send('Booking data saved successfully');
-    }
-  });
+// Endpoint for checking server status
+app.get('/api/status', cors(), (req, res) => {
+  res.status(200).json({ status: '200' });
 });
 
-///////////////// SERVER START
 
 app.listen(port, () => {
   generateCalendarData();
