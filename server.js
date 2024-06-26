@@ -29,7 +29,6 @@ const db = new sqlite3.Database('./db/database.db', (err) => {
 
 //// NEW SPECIALIST
 
-// Эндпоинт для добавления нового специалиста
 app.post('/api/specialists', cors(), (req, res) => {
   const { name, services, inactiveDays, workingTimes, photo } = req.body; // Получаем данные нового специалиста из тела запроса
 
@@ -39,7 +38,7 @@ app.post('/api/specialists', cors(), (req, res) => {
     VALUES (?, ?, ?, ?, ?)
   `;
 
-  const values = [name, services, inactiveDays, workingTimes, photo]; // Значения для подстановки в SQL-запрос
+  const values = [name, services, inactiveDays, workingTimes, photo];
 
   // Выполняем SQL-запрос к базе данных
   db.run(insertQuery, values, function(err) {
@@ -151,6 +150,25 @@ app.post('/api/booking', cors(), (req, res) => {
     } else {
       console.log(`Booking inserted with ID: ${this.lastID}`);
       res.status(200).send('Booking data saved successfully');
+    }
+  });
+});
+
+//// Маршрут для получения доступных дат и времени для конкретного специалиста
+app.get('/getavailabletimes/:specialistId', (req, res) => {
+  const specialistId = req.params.specialistId;
+
+  const sql = `
+    SELECT working_times, inactive_days 
+    FROM specialists 
+    WHERE id = ?`;
+
+  db.all(sql, [specialistId], (err, rows) => {
+    if (err) {
+      console.error(err.message);
+      res.status(500).send('Failed to retrieve available times');
+    } else {
+      res.json({ availableTimesForMonths: rows });
     }
   });
 });
@@ -466,6 +484,32 @@ app.get('/getavailabletimes', cors(), (req, res) => {
 app.get('/api/status', cors(), (req, res) => {
   res.status(200).json({ status: '200' });
 });
+
+// Эндпоинт для получения количества дней в месяце
+app.get('/api/daysinmonth/:year/:monthIndex', cors(), (req, res) => {
+  const year = parseInt(req.params.year);
+  const monthIndex = parseInt(req.params.monthIndex);
+
+  if (isNaN(year) || isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+    res.status(400).json({ error: 'Неверные параметры года или месяца' });
+    return;
+  }
+
+  const daysInMonth = getDaysInMonth(year, monthIndex);
+  res.json({ year, monthIndex: monthIndex + 1, daysInMonth }); // monthIndex + 1, чтобы вернуть "нормальный" индекс месяца (1-12)
+});
+
+// Функция для получения количества дней в месяце
+const getDaysInMonth = (year, monthIndex) => {
+  // monthIndex - месяцы в JavaScript начинаются с 0 (январь)
+  return new Date(year, monthIndex + 1, 0).getDate();
+};
+
+// Пример использования:
+const currentYear = new Date().getFullYear(); // Получаем текущий год
+const februaryDays = getDaysInMonth(currentYear, 1); // Февраль имеет индекс 1
+console.log(`Количество дней в феврале ${currentYear}: ${februaryDays}`);
+
 
 
 app.listen(port, () => {
