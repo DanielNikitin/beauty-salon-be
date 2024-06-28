@@ -31,7 +31,8 @@ function createTablesIfNotExists(db) {
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     year_id INTEGER NOT NULL,
                     month_id INTEGER NOT NULL,
-                    days_count INTEGER NOT NULL,
+                    day_number INTEGER NOT NULL,
+                    day_name TEXT NOT NULL,
                     FOREIGN KEY (year_id) REFERENCES Years(id),
                     FOREIGN KEY (month_id) REFERENCES Months(id)
                 );
@@ -85,70 +86,87 @@ function insertMonths(db) {
     stmt.finalize();
 }
 
-// Function to insert days count for each month with days name
+// Function to insert days for each month with day names
 function insertMonthDays(db) {
+    const yearsQuery = `
+        SELECT id, year, is_leap_year FROM Years WHERE year IN (?, ?)
+    `;
+    const monthsQuery = `
+        SELECT id, name FROM Months
+    `;
+    const insertDayQuery = `
+        INSERT OR IGNORE INTO MonthDays (year_id, month_id, day_number, day_name)
+        VALUES (?, ?, ?, ?)
+    `;
+
     const currentYear = new Date().getFullYear();
     const nextYear = currentYear + 1;
 
-    const stmt = db.prepare(`
-        INSERT OR IGNORE INTO MonthDays (year_id, month_id, day_number, day_name)
-        SELECT y.id, m.id, strftime('%d', 'now', 'start of month', '+1 month', '-1 day') AS day_number,
-               CASE CAST(strftime('%w', y.year || '-' || m.id || '-' || day_number) AS INTEGER)
-               WHEN 0 THEN 'Sunday'
-               WHEN 1 THEN 'Monday'
-               WHEN 2 THEN 'Tuesday'
-               WHEN 3 THEN 'Wednesday'
-               WHEN 4 THEN 'Thursday'
-               WHEN 5 THEN 'Friday'
-               WHEN 6 THEN 'Saturday'
-               END AS day_name
-        FROM Years y
-        CROSS JOIN Months m
-        WHERE y.year IN (?, ?) AND NOT EXISTS (
-            SELECT 1 FROM MonthDays md
-            WHERE md.year_id = y.id AND md.month_id = m.id
-        );
-    `);
+    db.all(yearsQuery, [currentYear, nextYear], (err, years) => {
+        if (err) {
+            console.error('Error fetching years:', err.message);
+            return;
+        }
 
-    stmt.run(currentYear, nextYear);
-    stmt.finalize();
+        db.all(monthsQuery, (err, months) => {
+            if (err) {
+                console.error('Error fetching months:', err.message);
+                return;
+            }
+
+            const insertDayStmt = db.prepare(insertDayQuery);
+
+            years.forEach(year => {
+                months.forEach(month => {
+                    const daysInMonth = getDaysInMonth(month.name, year.is_leap_year);
+
+                    for (let day = 1; day <= daysInMonth; day++) {
+                        const date = new Date(year.year, months.indexOf(month), day);
+                        const dayName = getDayName(date.getDay());
+
+                        insertDayStmt.run(year.id, month.id, day, dayName);
+                    }
+                });
+            });
+
+            insertDayStmt.finalize();
+        });
+    });
 }
 
+// Helper function to get the number of days in a month
+function getDaysInMonth(month, isLeapYear) {
+    switch (month) {
+        case 'January':
+        case 'March':
+        case 'May':
+        case 'July':
+        case 'August':
+        case 'October':
+        case 'December':
+            return 31;
+        case 'April':
+        case 'June':
+        case 'September':
+        case 'November':
+            return 30;
+        case 'February':
+            return isLeapYear ? 29 : 28;
+        default:
+            throw new Error('Invalid month name');
+    }
+}
+
+// Helper function to get the name of the day
+function getDayName(dayIndex) {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return days[dayIndex];
+}
 
 // Function to determine leap year
 function isLeapYear(year) {
     return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
 }
-
-// Function to insert days count for each month
-function insertMonthDays(db) {
-    const currentYear = new Date().getFullYear();
-    const nextYear = currentYear + 1;
-
-    const stmt = db.prepare(`
-        INSERT OR IGNORE INTO MonthDays (year_id, month_id, days_count)
-        SELECT y.id, m.id,
-               CASE
-                   WHEN m.name IN ('January', 'March', 'May', 'July', 'August', 'October', 'December') THEN 31
-                   WHEN m.name IN ('April', 'June', 'September', 'November') THEN 30
-                   ELSE
-                       CASE
-                           WHEN (y.year % 4 = 0 AND y.year % 100 != 0) OR (y.year % 400 = 0) THEN 29
-                           ELSE 28
-                       END
-               END AS days_count
-        FROM Years y
-        CROSS JOIN Months m
-        WHERE y.year IN (?, ?) AND NOT EXISTS (
-            SELECT 1 FROM MonthDays md
-            WHERE md.year_id = y.id AND md.month_id = m.id
-        );
-    `);
-
-    stmt.run(currentYear, nextYear);
-    stmt.finalize();
-}
-
 
 // Main function to execute the script
 async function main() {
