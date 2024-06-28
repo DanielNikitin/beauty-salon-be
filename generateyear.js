@@ -1,7 +1,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const dbPath = './db/database.db';
 
-// Function to create tables if they do not exist
+// Create tables if they do not exist
 function createTablesIfNotExists(db) {
     return new Promise((resolve, reject) => {
         db.serialize(() => {
@@ -44,7 +44,7 @@ function createTablesIfNotExists(db) {
     });
 }
 
-// Function to insert year data
+// Insert year data
 function insertYears(db) {
     const currentYear = new Date().getFullYear();
     const nextYear = currentYear + 1;
@@ -68,7 +68,7 @@ function insertYears(db) {
     stmtNextYear.finalize();
 }
 
-// Function to insert month data
+// Insert month data
 function insertMonths(db) {
     const months = [
         'January', 'February', 'March', 'April', 'May', 'June',
@@ -86,7 +86,7 @@ function insertMonths(db) {
     stmt.finalize();
 }
 
-// Function to insert days for each month with day names
+// Insert days for each month with day names
 function insertMonthDays(db) {
     const yearsQuery = `
         SELECT id, year, is_leap_year FROM Years WHERE year IN (?, ?)
