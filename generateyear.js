@@ -19,7 +19,8 @@ function createTablesIfNotExists(db) {
             db.run(`
                 CREATE TABLE IF NOT EXISTS Months (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT UNIQUE NOT NULL
+                    name TEXT UNIQUE NOT NULL,
+                    days_count INTEGER NOT NULL DEFAULT 0
                 );
             `, (err) => {
                 if (err) reject(err);
@@ -71,19 +72,44 @@ function insertYears(db) {
 // Insert month data
 function insertMonths(db) {
     const months = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
+        { name: 'January', days_count: 31 },
+        { name: 'February', days_count: 28 }, // Updated later if leap year
+        { name: 'March', days_count: 31 },
+        { name: 'April', days_count: 30 },
+        { name: 'May', days_count: 31 },
+        { name: 'June', days_count: 30 },
+        { name: 'July', days_count: 31 },
+        { name: 'August', days_count: 31 },
+        { name: 'September', days_count: 30 },
+        { name: 'October', days_count: 31 },
+        { name: 'November', days_count: 30 },
+        { name: 'December', days_count: 31 }
     ];
 
     const stmt = db.prepare(`
-        INSERT OR IGNORE INTO Months (name) VALUES (?);
+        INSERT OR IGNORE INTO Months (name, days_count) VALUES (?, ?);
     `);
 
     months.forEach(month => {
-        stmt.run(month);
+        stmt.run(month.name, month.days_count);
     });
 
     stmt.finalize();
+}
+
+// Update days_count for February if it's a leap year
+function updateDaysCountForFebruary(db, isLeapYear) {
+    const daysInFebruary = isLeapYear ? 29 : 28;
+
+    db.run(`
+        UPDATE Months SET days_count = ? WHERE name = 'February';
+    `, [daysInFebruary], function(err) {
+        if (err) {
+            console.error('Error updating days_count for February:', err.message);
+            return;
+        }
+        console.log(`Updated days_count for February to ${daysInFebruary}`);
+    });
 }
 
 // Insert days for each month with day names
@@ -92,7 +118,7 @@ function insertMonthDays(db) {
         SELECT id, year, is_leap_year FROM Years WHERE year IN (?, ?)
     `;
     const monthsQuery = `
-        SELECT id, name FROM Months
+        SELECT id, name, days_count FROM Months
     `;
     const insertDayQuery = `
         INSERT OR IGNORE INTO MonthDays (year_id, month_id, day_number, day_name)
@@ -118,7 +144,7 @@ function insertMonthDays(db) {
 
             years.forEach(year => {
                 months.forEach(month => {
-                    const daysInMonth = getDaysInMonth(month.name, year.is_leap_year);
+                    const daysInMonth = month.days_count;
 
                     for (let day = 1; day <= daysInMonth; day++) {
                         const date = new Date(year.year, months.indexOf(month), day);
@@ -132,29 +158,6 @@ function insertMonthDays(db) {
             insertDayStmt.finalize();
         });
     });
-}
-
-// Helper function to get the number of days in a month
-function getDaysInMonth(month, isLeapYear) {
-    switch (month) {
-        case 'January':
-        case 'March':
-        case 'May':
-        case 'July':
-        case 'August':
-        case 'October':
-        case 'December':
-            return 31;
-        case 'April':
-        case 'June':
-        case 'September':
-        case 'November':
-            return 30;
-        case 'February':
-            return isLeapYear ? 29 : 28;
-        default:
-            throw new Error('Invalid month name');
-    }
 }
 
 // Helper function to get the name of the day
@@ -184,6 +187,15 @@ async function main() {
             // Insert data
             insertYears(db);
             insertMonths(db);
+
+            // Determine if current year is leap year
+            const currentYear = new Date().getFullYear();
+            const isCurrentYearLeap = isLeapYear(currentYear);
+
+            // Update days_count for February if it's a leap year
+            updateDaysCountForFebruary(db, isCurrentYearLeap);
+
+            // Insert month days
             insertMonthDays(db);
 
             // Close database connection
