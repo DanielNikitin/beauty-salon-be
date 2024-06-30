@@ -27,6 +27,27 @@ app.get('/api/status', cors(), (req, res) => {
   res.status(200).json({ status: '200' });
 });
 
+// Endpoint to fetch calendar data
+app.get('/api/calendardata', cors(), (req, res) => {
+  const sql = `SELECT id, name, days_count FROM Months`;
+
+  db.all(sql, [], (err, rows) => {
+    if (err) {
+      console.error('Error fetching calendar data:', err.message);
+      res.status(500).json({ error: 'Failed to fetch calendar data' });
+      return;
+    }
+
+    const calendarData = rows.map(row => ({
+      monthIndex: row.id,
+      monthName: row.name,
+      numberOfDays: row.days_count,
+    }));
+
+    res.json({ calendarData });
+  });
+});
+
 // Endpoint to fetch month name by month index
 app.get('/api/monthname/:monthIndex', cors(), (req, res) => {
   const monthIndex = req.params.monthIndex;
@@ -49,57 +70,132 @@ app.get('/api/monthname/:monthIndex', cors(), (req, res) => {
   });
 });
 
-// Endpoint to fetch calendar data
-app.get('/api/calendardata', cors(), (req, res) => {
-  const sql = `SELECT id, name, days_count FROM Months`;
-
-  db.all(sql, [], (err, rows) => {
-    if (err) {
-      console.error('Error fetching calendar data:', err.message);
-      res.status(500).json({ error: 'Failed to fetch calendar data' });
-      return;
-    }
-
-    const calendarData = rows.map(row => ({
-      monthIndex: row.id,
-      monthName: row.name,
-      numberOfDays: row.days_count,
-    }));
-
-    res.json({ calendarData });
-  });
-});
-
 // Endpoint to fetch month data by year and month
 app.get('/api/monthdata/:year/:month', cors(), (req, res) => {
   const { year, month } = req.params;
 
-  const sql = `
-    SELECT day_number, day_name
-    FROM MonthDays
-    WHERE year_id = ? AND month_id = ?
-    ORDER BY day_number
-  `;
+  const yearQuery = `SELECT id FROM Years WHERE year = ?`;
+  const monthQuery = `SELECT id FROM Months WHERE id = ?`;
 
-  db.all(sql, [year, month], (err, rows) => {
+  db.get(yearQuery, [year], (err, yearRow) => {
     if (err) {
-      console.error('Error fetching month data:', err.message);
-      res.status(500).json({ error: 'Failed to fetch month data' });
+      console.error('Error fetching year:', err.message);
+      res.status(500).json({ error: 'Failed to fetch year' });
       return;
     }
 
-    if (rows.length === 0) {
-      res.status(404).json({ error: 'Month data not found' });
+    if (!yearRow) {
+      res.status(404).json({ error: 'Year not found' });
       return;
     }
 
-    const monthData = {
-      year,
-      month,
-      days: rows
-    };
+    db.get(monthQuery, [month], (err, monthRow) => {
+      if (err) {
+        console.error('Error fetching month:', err.message);
+        res.status(500).json({ error: 'Failed to fetch month' });
+        return;
+      }
 
-    res.json(monthData);
+      if (!monthRow) {
+        res.status(404).json({ error: 'Month not found' });
+        return;
+      }
+
+      const sql = `
+        SELECT day_number, day_name
+        FROM MonthDays
+        WHERE year_id = ? AND month_id = ?
+        ORDER BY day_number
+      `;
+
+      db.all(sql, [yearRow.id, monthRow.id], (err, rows) => {
+        if (err) {
+          console.error('Error fetching month data:', err.message);
+          res.status(500).json({ error: 'Failed to fetch month data' });
+          return;
+        }
+
+        if (rows.length === 0) {
+          res.status(404).json({ error: 'Month data not found' });
+          return;
+        }
+
+        const monthData = {
+          year,
+          month,
+          days: rows
+        };
+
+        res.json(monthData);
+      });
+    });
+  });
+});
+
+// Endpoint for fetch current Month Data
+app.get('/api/monthdata', cors(), (req, res) => {
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth() + 1;
+  const currentDay = currentDate.getDate();
+
+  const yearQuery = `SELECT id FROM Years WHERE year = ?`;
+  const monthQuery = `SELECT id, days_count FROM Months WHERE id = ?`;
+
+  db.get(yearQuery, [currentYear], (err, yearRow) => {
+    if (err) {
+      console.error('Error fetching year:', err.message);
+      res.status(500).json({ error: 'Failed to fetch year' });
+      return;
+    }
+
+    if (!yearRow) {
+      res.status(404).json({ error: 'Year not found' });
+      return;
+    }
+
+    db.get(monthQuery, [currentMonth], (err, monthRow) => {
+      if (err) {
+        console.error('Error fetching month:', err.message);
+        res.status(500).json({ error: 'Failed to fetch month' });
+        return;
+      }
+
+      if (!monthRow) {
+        res.status(404).json({ error: 'Month not found' });
+        return;
+      }
+
+      const sql = `
+        SELECT day_number, day_name
+        FROM MonthDays
+        WHERE year_id = ? AND month_id = ?
+        ORDER BY day_number
+      `;
+
+      db.all(sql, [yearRow.id, monthRow.id], (err, rows) => {
+        if (err) {
+          console.error('Error fetching current month data:', err.message);
+          res.status(500).json({ error: 'Failed to fetch current month data' });
+          return;
+        }
+
+        if (rows.length === 0) {
+          res.status(404).json({ error: 'Current month data not found' });
+          return;
+        }
+
+        const currentMonthData = {
+          year: currentYear,
+          month: currentMonth,
+          currentDay: currentDay,
+          numberOfDays: monthRow.days_count,
+          days: rows
+        };
+
+        res.json({ currentMonthData });
+      });
+    });
   });
 });
 
@@ -210,35 +306,28 @@ app.get('/api/bookings', cors(), (req, res) => {
 
 // Endpoint to add a new booking
 app.post('/api/booking', cors(), (req, res) => {
-  const bookingData = req.body;
+  const { specialistId, name, email, date, time } = req.body;
 
-  const { specialistId, selectedServices, selectedDate, selectedTime, personalInfo } = bookingData;
-  const { name, phone, email, comment, agreedToPrivacyPolicy } = personalInfo;
-
-  const sql = `
-    INSERT INTO bookings (specialistId, selectedServices, selectedDate, selectedTime, name, phone, email, comment, agreedToPrivacyPolicy) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  const insertQuery = `
+    INSERT INTO bookings (specialist_id, name, email, date, time)
+    VALUES (?, ?, ?, ?, ?)
   `;
-  const values = [specialistId, JSON.stringify(selectedServices), selectedDate, selectedTime, name, phone, email, comment, agreedToPrivacyPolicy ? 1 : 0];
 
-  db.run(sql, values, function(err) {
+  const values = [specialistId, name, email, date, time];
+
+  db.run(insertQuery, values, function(err) {
     if (err) {
-      console.error('Error inserting booking data:', err.message);
-      res.status(500).json({ error: 'Failed to save booking data' });
+      console.error('Error adding new booking:', err.message);
+      res.status(500).json({ error: 'Failed to add new booking' });
       return;
     }
 
-    console.log(`Booking inserted with ID: ${this.lastID}`);
-    res.status(200).json({ message: 'Booking data saved successfully' });
+    console.log(`New booking added with ID: ${this.lastID}`);
+    res.status(200).json({ message: 'New booking added successfully' });
   });
 });
 
-// Endpoint to fetch list of booked times
-app.get('/api/bookedtimes', cors(), (req, res) => {
-  res.json(bookedTimes);
-});
 
-// Start server
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  console.log(`Server is running on http://localhost:${port}`);
 });

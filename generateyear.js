@@ -13,7 +13,6 @@ function createTablesIfNotExists(db) {
                 );
             `, (err) => {
                 if (err) reject(err);
-                else resolve();
             });
 
             db.run(`
@@ -24,7 +23,6 @@ function createTablesIfNotExists(db) {
                 );
             `, (err) => {
                 if (err) reject(err);
-                else resolve();
             });
 
             db.run(`
@@ -34,6 +32,7 @@ function createTablesIfNotExists(db) {
                     month_id INTEGER NOT NULL,
                     day_number INTEGER NOT NULL,
                     day_name TEXT NOT NULL,
+                    days_in_month INTEGER NOT NULL,
                     FOREIGN KEY (year_id) REFERENCES Years(id),
                     FOREIGN KEY (month_id) REFERENCES Months(id)
                 );
@@ -121,8 +120,8 @@ function insertMonthDays(db) {
         SELECT id, name, days_count FROM Months
     `;
     const insertDayQuery = `
-        INSERT OR IGNORE INTO MonthDays (year_id, month_id, day_number, day_name)
-        VALUES (?, ?, ?, ?)
+        INSERT OR IGNORE INTO MonthDays (year_id, month_id, day_number, day_name, days_in_month)
+        VALUES (?, ?, ?, ?, ?)
     `;
 
     const currentYear = new Date().getFullYear();
@@ -150,7 +149,7 @@ function insertMonthDays(db) {
                         const date = new Date(year.year, months.indexOf(month), day);
                         const dayName = getDayName(date.getDay());
 
-                        insertDayStmt.run(year.id, month.id, day, dayName);
+                        insertDayStmt.run(year.id, month.id, day, dayName, daysInMonth);
                     }
                 });
             });
