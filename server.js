@@ -75,7 +75,7 @@ app.get('/api/monthdata/:year/:month', cors(), (req, res) => {
   const { year, month } = req.params;
 
   const yearQuery = `SELECT id FROM Years WHERE year = ?`;
-  const monthQuery = `SELECT id FROM Months WHERE id = ?`;
+  const monthQuery = `SELECT id, name, days_count FROM Months WHERE id = ?`;
 
   db.get(yearQuery, [year], (err, yearRow) => {
     if (err) {
@@ -123,6 +123,7 @@ app.get('/api/monthdata/:year/:month', cors(), (req, res) => {
         const monthData = {
           year,
           month,
+          monthName: monthRow.name,
           days: rows
         };
 
@@ -132,6 +133,7 @@ app.get('/api/monthdata/:year/:month', cors(), (req, res) => {
   });
 });
 
+
 // Endpoint for fetch current Month Data
 app.get('/api/monthdata', cors(), (req, res) => {
   const currentDate = new Date();
@@ -140,7 +142,7 @@ app.get('/api/monthdata', cors(), (req, res) => {
   const currentDay = currentDate.getDate();
 
   const yearQuery = `SELECT id FROM Years WHERE year = ?`;
-  const monthQuery = `SELECT id, days_count FROM Months WHERE id = ?`;
+  const monthQuery = `SELECT id, name, days_count FROM Months WHERE id = ?`;
 
   db.get(yearQuery, [currentYear], (err, yearRow) => {
     if (err) {
@@ -188,6 +190,7 @@ app.get('/api/monthdata', cors(), (req, res) => {
         const currentMonthData = {
           year: currentYear,
           month: currentMonth,
+          monthName: monthRow.name,
           currentDay: currentDay,
           numberOfDays: monthRow.days_count,
           days: rows
@@ -221,14 +224,22 @@ app.get('/api/availabletimes/:specialistId', cors(), (req, res) => {
       return;
     }
 
+    // Преобразование строки working_times в массив строк
+    const workingTimes = row.working_times.split(',').map(time => time.trim());
+
+    // Использование строки inactive_days напрямую, если она не JSON
+    const inactiveDays = row.inactive_days;
+
     const availableTimes = {
-      workingTimes: JSON.parse(row.working_times),
-      inactiveDays: JSON.parse(row.inactive_days)
+      workingTimes: workingTimes,
+      inactiveDays: inactiveDays
     };
 
     res.json({ availableTimes });
   });
 });
+
+
 
 // Endpoint to fetch list of specialists
 app.get('/api/specialists', cors(), (req, res) => {
@@ -288,6 +299,29 @@ app.delete('/api/specialists/:id', cors(), (req, res) => {
     res.status(200).json({ message: 'Specialist deleted successfully' });
   });
 });
+
+// Endpoint to fetch specialist details by ID
+app.get('/api/specialists/:id', cors(), (req, res) => {
+  const specialistId = req.params.id;
+
+  const sql = `SELECT * FROM specialists WHERE id = ?`;
+
+  db.get(sql, [specialistId], (err, row) => {
+    if (err) {
+      console.error('Error fetching specialist details:', err.message);
+      res.status(500).json({ error: 'Failed to fetch specialist details' });
+      return;
+    }
+
+    if (!row) {
+      res.status(404).json({ error: 'Specialist not found' });
+      return;
+    }
+
+    res.json(row);
+  });
+});
+
 
 // Endpoint to fetch list of bookings
 app.get('/api/bookings', cors(), (req, res) => {
